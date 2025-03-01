@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-export const AuthContext = createContext();
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Set axios default header
+  // Set auth token for all axios requests
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Check if user is logged in
+  // Load user data on mount or token change
   useEffect(() => {
     const loadUser = async () => {
       if (!token) {
@@ -31,21 +31,23 @@ export const AuthProvider = ({ children }) => {
         setUser(res.data);
       } catch (err) {
         console.error('Error loading user:', err);
+        // Clear invalid token
         localStorage.removeItem('token');
         setToken(null);
-        setError('Authentication failed. Please login again.');
+        setError('Session expired. Please login again.');
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     loadUser();
   }, [token]);
 
   // Register user
-  const register = async (userData) => {
+  const register = async (formData) => {
     try {
-      const res = await axios.post('/api/auth/register', userData);
+      const res = await axios.post('/api/auth/register', formData);
+      
       localStorage.setItem('token', res.data.token);
       setToken(res.data.token);
       setUser(res.data.user);
@@ -57,9 +59,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Login user
-  const login = async (userData) => {
+  const login = async (formData) => {
     try {
-      const res = await axios.post('/api/auth/login', userData);
+      const res = await axios.post('/api/auth/login', formData);
+      
       localStorage.setItem('token', res.data.token);
       setToken(res.data.token);
       setUser(res.data.user);
@@ -85,8 +88,8 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider
       value={{
-        user,
         token,
+        user,
         loading,
         error,
         register,

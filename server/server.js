@@ -1,4 +1,3 @@
-// In server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -124,19 +123,36 @@ io.on('connection', (socket) => {
       
       const systemPrompt = customInstructions || "You are a helpful assistant.";
       
-      const geminiChat = model.startChat({
-        history: [
-          {
-            role: "user",
-            parts: [{ text: "Please follow these instructions for our conversation: " + systemPrompt }],
-          },
-          {
-            role: "model",
-            parts: [{ text: "I'll follow those instructions. How can I help you today?" }],
-          }
-        ],
+      // Build conversation history from previous messages
+      const chatHistory = [];
+      
+      // Add system prompt as the first message
+      chatHistory.push({
+        role: "user",
+        parts: [{ text: "Please follow these instructions for our conversation: " + systemPrompt }],
       });
       
+      chatHistory.push({
+        role: "model",
+        parts: [{ text: "I'll follow those instructions. How can I help you today?" }],
+      });
+      
+      // Add previous messages from this chat to provide context
+      // Skip the last message as it's the one we just added and will send separately
+      for (let i = 0; i < chat.messages.length - 1; i++) {
+        const msg = chat.messages[i];
+        chatHistory.push({
+          role: msg.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+      }
+      
+      // Start chat with history
+      const geminiChat = model.startChat({
+        history: chatHistory,
+      });
+      
+      // Send the current message
       const result = await geminiChat.sendMessage(message);
       const aiResponse = result.response.text();
       
